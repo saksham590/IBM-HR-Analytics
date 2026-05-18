@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBM HR Analytics - Interactive Employee Attrition Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(22, 28, 45, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-glow: rgba(99, 102, 241, 0.15);
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --card-radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f8fafc;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --border-color: rgba(0, 0, 0, 0.06);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+            --primary-glow: rgba(79, 70, 229, 0.1);
+            --secondary: #059669;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Ambient Glow Backdrops */
+        .glow-1 {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            left: -100px;
+            top: -100px;
+            background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .glow-2 {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            right: -100px;
+            bottom: -100px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Glassmorphic Layout Container */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        .header-title-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-icon {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title-section h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.7rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn-theme {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: var(--transition);
+        }
+
+        .btn-theme:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Metric Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 25px var(--primary-glow);
+        }
+
+        .metric-info h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .metric-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .metric-icon-box {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .metric-blue {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-light);
+        }
+
+        .metric-red {
+            background: rgba(239, 68, 110, 0.1);
+            color: var(--danger);
+        }
+
+        .metric-green {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--secondary);
+        }
+
+        .metric-orange {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        /* Two-Column Analytics Layout */
+        .analytics-section {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1100px) {
+            .analytics-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.8rem;
+        }
+
+        .card-header h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .card-header h2 i {
+            color: var(--primary);
+        }
+
+        /* Form elements styling */
+        .select-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .select-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        .column-info-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            border-left: 3px solid var(--primary);
+        }
+
+        /* Charts Container */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-box {
+            position: relative;
+            height: 320px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Interactive Data Explorer Section */
+        .data-explorer-card {
+            margin-top: 2rem;
+        }
+
+        .explorer-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box-wrapper {
+            position: relative;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        .search-box-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .input-search {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+            transition: var(--transition);
+        }
+
+        .input-search:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-action {
+            padding: 0.75rem 1.25rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .btn-action:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Column Selector Checkboxes Panel */
+        .column-toggle-panel {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: none; /* Toggle via button */
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .column-toggle-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Custom Checkbox */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .checkbox-label:hover {
+            color: var(--text-primary);
+        }
+
+        .checkbox-label input {
+            accent-color: var(--primary);
+            width: 15px;
+            height: 15px;
+        }
+
+        /* Clean Data Table Wrapper */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            margin-bottom: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        thead {
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            padding: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+        }
+
+        td {
+            padding: 1rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.015);
+            color: var(--text-primary);
+        }
+
+        /* Pagination & Info styling */
+        .table-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .data-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-page {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-page:hover:not(:disabled) {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .btn-page:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .current-page-num {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0 0.5rem;
+        }
+
+        /* Attrition Badge Styling */
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-yes {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .badge-no {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--secondary);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+
+    <div class="dashboard-container">
+        
+        <!-- HEADER -->
+        <header>
+            <div class="header-title-section">
+                <i class="fa-solid fa-users-line header-icon"></i>
+                <div>
+                    <h1>IBM HR Analytics</h1>
+                    <div class="header-subtitle">Interactive Employee Attrition & Predictive Feature Workspace</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn-theme" id="theme-toggle" title="Toggle Theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- SUMMARY METRICS PANEL -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Total Employees</h3>
+                    <div class="metric-value" id="total-employees-metric">1,470</div>
+                </div>
+                <div class="metric-icon-box metric-blue">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Attrition Count</h3>
+                    <div class="metric-value" id="attrition-count-metric">237</div>
+                </div>
+                <div class="metric-icon-box metric-red">
+                    <i class="fa-solid fa-user-slash"></i>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Attrition Rate</h3>
+                    <div class="metric-value" id="attrition-rate-metric">16.1%</div>
+                </div>
+                <div class="metric-icon-box metric-orange">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Avg Monthly Income</h3>
+                    <div class="metric-value" id="avg-income-metric">$6,503</div>
+                </div>
+                <div class="metric-icon-box metric-green">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN ANALYTICS ROW -->
+        <div class="analytics-section">
+            
+            <!-- COLUMN CONFIGURATOR -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-sliders"></i> Feature Selector</h2>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Select Column to Analyze:</label>
+                        <select id="column-selector" class="select-control">
+                            <!-- Populated dynamically via JS -->
+                        </select>
+                    </div>
+
+                    <div class="column-info-box">
+                        <strong style="color: var(--primary-light);">Column Info:</strong>
+                        <div id="column-description" style="margin-top: 0.25rem;">Select a feature column above to render automated population distribution, count metrics, and cross-comparison with overall employee attrition patterns.</div>
+                    </div>
+
+                    <div style="margin-top: 0.5rem;">
+                        <h4 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Quick Stats for Feature:</h4>
+                        <div id="feature-quick-stats" style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INTERACTIVE PLOTS -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 id="chart-header-title"><i class="fa-solid fa-chart-simple"></i> Feature Distribution & Attrition Breakdown</h2>
+                </div>
+                <div class="charts-row">
+                    <div>
+                        <div style="font-size: 0.8rem; font-weight: 600; text-align: center; margin-bottom: 0.5rem; color: var(--text-secondary);">Overall Distribution</div>
+                        <div class="chart-box">
+                            <canvas id="distribution-chart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8rem; font-weight: 600; text-align: center; margin-bottom: 0.5rem; color: var(--text-secondary);">Attrition Ratio Comparison</div>
+                        <div class="chart-box">
+                            <canvas id="attrition-ratio-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- INTERACTIVE DATA GRID (ALL COLUMNS EXPLORER) -->
+        <div class="card data-explorer-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-table-cells"></i> Complete Dataset Explorer</h2>
+                <span style="font-size: 0.8rem; color: var(--text-secondary);" id="total-rows-info">Showing 1470 Employees</span>
+            </div>
+
+            <div class="explorer-toolbar">
+                <div class="search-box-wrapper">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="table-search" class="input-search" placeholder="Search across all fields...">
+                </div>
+                <div class="toolbar-actions">
+                    <button class="btn-action" id="btn-toggle-columns">
+                        <i class="fa-solid fa-list-check"></i> Choose Columns
+                    </button>
+                    <button class="btn-action" id="btn-download-csv">
+                        <i class="fa-solid fa-download"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- COLUMN VISIBILITY DRAWER -->
+            <div class="column-toggle-panel" id="column-panel">
+                <div class="column-toggle-title">
+                    <span>Select Columns to Display:</span>
+                    <div>
+                        <button class="btn-action" id="btn-col-all" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">All</button>
+                        <button class="btn-action" id="btn-col-none" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">None</button>
+                    </div>
+                </div>
+                <div class="column-grid" id="checkbox-grid">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- DATA TABLE -->
+            <div class="table-responsive">
+                <table id="hr-table">
+                    <thead>
+                        <tr id="table-header-row">
+                            <!-- Populated dynamically -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINATION -->
+            <div class="table-footer">
+                <div class="data-info" id="pagination-info">
+                    Showing 1 to 10 of 1,470 records
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn-page" id="btn-first" title="First Page"><i class="fa-solid fa-angles-left"></i></button>
+                    <button class="btn-page" id="btn-prev" title="Previous Page"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span class="current-page-num" id="page-num">1 / 147</span>
+                    <button class="btn-page" id="btn-next" title="Next Page"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="btn-page" id="btn-last" title="Last Page"><i class="fa-solid fa-angles-right"></i></button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Data source JavaScript -->
+    <script src="data.js"></script>
+    <script>
+        // Check if data is loaded correctly
+        if (typeof HR_DATA === 'undefined') {
+            console.error('HR_DATA was not loaded successfully. Please ensure data.js is generated.');
+            alert('HR_DATA was not loaded successfully! Please verify data.js exist.');
+        }
+
+        // Color mapping for Attrition
+        const COLORS = {
+            primary: '#6366f1',
+            primaryLight: '#818cf8',
+            secondary: '#10b981',
+            danger: '#ef4444',
+            warning: '#f59e0b',
+            gray: '#6b7280',
+            chartBgs: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#3b82f6', '#14b8a6']
+        };
+
+        // Complete list of 35 columns
+        const ALL_COLUMNS = [
+            'Age', 'Attrition', 'BusinessTravel', 'DailyRate', 'Department', 'DistanceFromHome', 
+            'Education', 'EducationField', 'EmployeeCount', 'EmployeeNumber', 'EnvironmentSatisfaction', 
+            'Gender', 'HourlyRate', 'JobInvolvement', 'JobLevel', 'JobRole', 'JobSatisfaction', 
+            'MaritalStatus', 'MonthlyIncome', 'MonthlyRate', 'NumCompaniesWorked', 'Over18', 'OverTime', 
+            'PercentSalaryHike', 'PerformanceRating', 'RelationshipSatisfaction', 'StandardHours', 
+            'StockOptionLevel', 'TotalWorkingYears', 'TrainingTimesLastYear', 'WorkLifeBalance', 
+            'YearsAtCompany', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'YearsWithCurrManager'
+        ];
+
+        // Description mapping for all columns
+        const COLUMN_DESCRIPTIONS = {
+            'Age': 'Age of the employee in years.',
+            'Attrition': 'Whether the employee left the company (Yes or No).',
+            'BusinessTravel': 'Frequency of business travels (Non-Travel, Travel_Rarely, Travel_Frequently).',
+            'DailyRate': 'Daily billing/cost rate of the employee.',
+            'Department': 'Operational department of the employee (Sales, Research & Development, Human Resources).',
+            'DistanceFromHome': 'Distance from employee home to work office in miles.',
+            'Education': 'Educational rank of the employee (1: Below College, 2: College, 3: Bachelor, 4: Master, 5: Doctor).',
+            'EducationField': 'Primary educational degree domain.',
+            'EmployeeCount': 'Static metric of employee units (always 1).',
+            'EmployeeNumber': 'Unique identifier index for the employee.',
+            'EnvironmentSatisfaction': 'Office environment satisfaction rating (1: Low, 4: Very High).',
+            'Gender': 'Gender identification (Female or Male).',
+            'HourlyRate': 'Hourly billing/pay rate of the employee.',
+            'JobInvolvement': 'Job dedication involvement rating (1: Low, 4: Very High).',
+            'JobLevel': 'Hierarchical organization role rank level (1 to 5).',
+            'JobRole': 'Specific corporate role identifier.',
+            'JobSatisfaction': 'General job contentment satisfaction rating (1: Low, 4: Very High).',
+            'MaritalStatus': 'Marital union status (Single, Married, Divorced).',
+            'MonthlyIncome': 'Base monthly salary in USD.',
+            'MonthlyRate': 'Alternate monthly rate parameter of employee.',
+            'NumCompaniesWorked': 'Number of corporate workplaces worked at previously.',
+            'Over18': 'Adult status validator (always Yes).',
+            'OverTime': 'Overtime work requirement validator (Yes or No).',
+            'PercentSalaryHike': 'Percentage value of salary increase hike in past year.',
+            'PerformanceRating': 'Corporate performance rating (3: Excellent, 4: Outstanding).',
+            'RelationshipSatisfaction': 'Interpersonal workplace relationship satisfaction (1: Low, 4: Very High).',
+            'StandardHours': 'Standard operational baseline hours (always 80).',
+            'StockOptionLevel': 'Corporate stock options package level (0 to 3).',
+            'TotalWorkingYears': 'Total career professional experience in years.',
+            'TrainingTimesLastYear': 'Total training session hours attended last year.',
+            'WorkLifeBalance': 'Job-to-personal life balance rating (1: Bad, 4: Best).',
+            'YearsAtCompany': 'Duration of service at current company in years.',
+            'YearsInCurrentRole': 'Duration of service in current role in years.',
+            'YearsSinceLastPromotion': 'Years elapsed since employee last promotion.',
+            'YearsWithCurrManager': 'Duration of service under current direct reporting manager.'
+        };
+
+        // Dashboard State
+        let activeTheme = 'dark';
+        let selectedColumn = 'Age';
+        let currentColumns = [...ALL_COLUMNS]; // columns displayed in the table
+        let currentPage = 1;
+        let rowsPerPage = 10;
+        let filteredData = [...HR_DATA];
+
+        // Chart instances
+        let distChart = null;
+        let attrChart = null;
+
+        // UI DOM Elements
+        const themeBtn = document.getElementById('theme-toggle');
+        const colSelector = document.getElementById('column-selector');
+        const colDescription = document.getElementById('column-description');
+        const featureStats = document.getElementById('feature-quick-stats');
+        const chartHeaderTitle = document.getElementById('chart-header-title');
+
+        const tableSearch = document.getElementById('table-search');
+        const btnToggleColumns = document.getElementById('btn-toggle-columns');
+        const columnPanel = document.getElementById('column-panel');
+        const checkboxGrid = document.getElementById('checkbox-grid');
+        const btnColAll = document.getElementById('btn-col-all');
+        const btnColNone = document.getElementById('btn-col-none');
+        const btnDownloadCsv = document.getElementById('btn-download-csv');
+
+        const tableHeaderRow = document.getElementById('table-header-row');
+        const tableBody = document.getElementById('table-body');
+        const totalRowsInfo = document.getElementById('total-rows-info');
+
+        const paginationInfo = document.getElementById('pagination-info');
+        const pageNumLabel = document.getElementById('page-num');
+        const btnFirst = document.getElementById('btn-first');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnLast = document.getElementById('btn-last');
+
+        // INITALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            initDashboardMetrics();
+            initColumnSelector();
+            initColumnVisibilityPanel();
+            updateCharts();
+            renderTable();
+            setupEventListeners();
+        });
+
+        // Theme Toggle Handler
+        themeBtn.addEventListener('click', () => {
+            if (activeTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                activeTheme = 'light';
+                themeBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                activeTheme = 'dark';
+                themeBtn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+            }
+            // Redraw charts with new styling if needed
+            updateCharts();
+        });
+
+        // Calculate Header Metric Totals
+        function initDashboardMetrics() {
+            const total = HR_DATA.length;
+            const attritionCount = HR_DATA.filter(row => row.Attrition === 'Yes').length;
+            const attritionRate = ((attritionCount / total) * 100).toFixed(1) + '%';
+            
+            const totalIncome = HR_DATA.reduce((sum, row) => sum + row.MonthlyIncome, 0);
+            const avgIncome = '$' + Math.round(totalIncome / total).toLocaleString();
+
+            document.getElementById('total-employees-metric').innerText = total.toLocaleString();
+            document.getElementById('attrition-count-metric').innerText = attritionCount.toLocaleString();
+            document.getElementById('attrition-rate-metric').innerText = attritionRate;
+            document.getElementById('avg-income-metric').innerText = avgIncome;
+        }
+
+        // Fill Selector Dropdown
+        function initColumnSelector() {
+            colSelector.innerHTML = '';
+            ALL_COLUMNS.forEach(col => {
+                const opt = document.createElement('option');
+                opt.value = col;
+                opt.innerText = col;
+                if (col === 'Age') opt.selected = true;
+                colSelector.appendChild(opt);
+            });
+        }
+
+        // Fill visibility checklist drawer
+        function initColumnVisibilityPanel() {
+            checkboxGrid.innerHTML = '';
+            ALL_COLUMNS.forEach(col => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = col;
+                cb.checked = true;
+                cb.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        if (!currentColumns.includes(col)) currentColumns.push(col);
+                    } else {
+                        currentColumns = currentColumns.filter(c => c !== col);
+                    }
+                    renderTableHeader();
+                    renderTableRows();
+                });
+
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + col));
+                checkboxGrid.appendChild(label);
+            });
+        }
+
+        // Attach global events
+        function setupEventListeners() {
+            // Feature Column Selector
+            colSelector.addEventListener('change', (e) => {
+                selectedColumn = e.target.value;
+                colDescription.innerText = COLUMN_DESCRIPTIONS[selectedColumn];
+                updateCharts();
+            });
+
+            // Toggle Columns Panel Drawer
+            btnToggleColumns.addEventListener('click', () => {
+                if (columnPanel.style.display === 'block') {
+                    columnPanel.style.display = 'none';
+                } else {
+                    columnPanel.style.display = 'block';
+                }
+            });
+
+            // Select all / None Columns
+            btnColAll.addEventListener('click', () => {
+                currentColumns = [...ALL_COLUMNS];
+                Array.from(checkboxGrid.querySelectorAll('input')).forEach(cb => cb.checked = true);
+                renderTableHeader();
+                renderTableRows();
+            });
+
+            btnColNone.addEventListener('click', () => {
+                currentColumns = [];
+                Array.from(checkboxGrid.querySelectorAll('input')).forEach(cb => cb.checked = false);
+                renderTableHeader();
+                renderTableRows();
+            });
+
+            // Search Bar Input Filter
+            tableSearch.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                currentPage = 1;
+                
+                if (query === '') {
+                    filteredData = [...HR_DATA];
+                } else {
+                    filteredData = HR_DATA.filter(row => {
+                        return Object.values(row).some(val => 
+                            String(val).toLowerCase().includes(query)
+                        );
+                    });
+                }
+                totalRowsInfo.innerText = `Showing ${filteredData.length} of ${HR_DATA.length} Employees`;
+                renderTableRows();
+                updatePagination();
+            });
+
+            // Pagination Controls
+            btnFirst.addEventListener('click', () => { if (currentPage > 1) { currentPage = 1; renderTableRows(); updatePagination(); } });
+            btnPrev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTableRows(); updatePagination(); } });
+            btnNext.addEventListener('click', () => { 
+                const maxPage = Math.ceil(filteredData.length / rowsPerPage);
+                if (currentPage < maxPage) { currentPage++; renderTableRows(); updatePagination(); } 
+            });
+            btnLast.addEventListener('click', () => { 
+                const maxPage = Math.ceil(filteredData.length / rowsPerPage);
+                if (currentPage < maxPage) { currentPage = maxPage; renderTableRows(); updatePagination(); } 
+            });
+
+            // Export to CSV
+            btnDownloadCsv.addEventListener('click', exportToCSV);
+        }
+
+        // ANALYTICS & VISUALIZATION ENGINE
+        function updateCharts() {
+            chartHeaderTitle.innerHTML = `<i class="fa-solid fa-chart-simple"></i> Interactive Feature Analytics: ${selectedColumn}`;
+            
+            // 1. Compute distribution frequency maps
+            const values = HR_DATA.map(row => row[selectedColumn]);
+            const isNumeric = typeof values[0] === 'number';
+
+            let labels = [];
+            let counts = [];
+            let attritionRates = []; // attrition yes / count
+
+            if (isNumeric) {
+                // Group numbers into max 10 discrete intervals/buckets
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const range = max - min;
+                const bucketCount = 8;
+                const bucketSize = range / bucketCount;
+
+                for (let i = 0; i < bucketCount; i++) {
+                    const bMin = Math.round(min + (i * bucketSize));
+                    const bMax = Math.round(min + ((i + 1) * bucketSize));
+                    labels.push(`${bMin}-${bMax}`);
+                    
+                    const subset = HR_DATA.filter(row => {
+                        const val = row[selectedColumn];
+                        return val >= bMin && (i === bucketCount - 1 ? val <= bMax : val < bMax);
+                    });
+                    counts.push(subset.length);
+
+                    const attrYes = subset.filter(row => row.Attrition === 'Yes').length;
+                    const rate = subset.length > 0 ? ((attrYes / subset.length) * 100) : 0;
+                    attritionRates.push(parseFloat(rate.toFixed(1)));
+                }
+
+                // Fill Info Statistics Box
+                const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length).toLocaleString();
+                featureStats.innerHTML = `
+                    <div><strong>Data Type:</strong> Numeric Variable</div>
+                    <div><strong>Minimum Value:</strong> ${min.toLocaleString()}</div>
+                    <div><strong>Maximum Value:</strong> ${max.toLocaleString()}</div>
+                    <div><strong>Overall Average:</strong> ${avg}</div>
+                `;
+
+            } else {
+                // Categorical Variables
+                const freq = {};
+                const attrFreq = {};
+
+                values.forEach((val, i) => {
+                    freq[val] = (freq[val] || 0) + 1;
+                    if (HR_DATA[i].Attrition === 'Yes') {
+                        attrFreq[val] = (attrFreq[val] || 0) + 1;
+                    }
+                });
+
+                labels = Object.keys(freq).sort();
+                labels.forEach(lbl => {
+                    counts.push(freq[lbl]);
+                    const attrYes = attrFreq[lbl] || 0;
+                    const rate = ((attrYes / freq[lbl]) * 100);
+                    attritionRates.push(parseFloat(rate.toFixed(1)));
+                });
+
+                // Fill Info Statistics Box
+                const uniqueCount = labels.length;
+                let mostFreq = labels[0];
+                let maxF = 0;
+                labels.forEach((lbl, idx) => {
+                    if (counts[idx] > maxF) {
+                        maxF = counts[idx];
+                        mostFreq = lbl;
+                    }
+                });
+
+                featureStats.innerHTML = `
+                    <div><strong>Data Type:</strong> Categorical Variable</div>
+                    <div><strong>Unique Values:</strong> ${uniqueCount} classes</div>
+                    <div><strong>Most Frequent Class:</strong> "${mostFreq}" (${maxF} rows)</div>
+                `;
+            }
+
+            // REDRAW CHARTS
+            if (distChart) distChart.destroy();
+            if (attrChart) attrChart.destroy();
+
+            const chartTextColors = activeTheme === 'dark' ? '#f3f4f6' : '#0f172a';
+            const gridLinesColor = activeTheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+
+            const ctx1 = document.getElementById('distribution-chart').getContext('2d');
+            const ctx2 = document.getElementById('attrition-ratio-chart').getContext('2d');
+
+            distChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Employees',
+                        data: counts,
+                        backgroundColor: COLORS.primary,
+                        borderColor: COLORS.primaryLight,
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: activeTheme === 'dark' ? '#1f2937' : '#ffffff',
+                            titleColor: chartTextColors,
+                            bodyColor: chartTextColors
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: chartTextColors },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { color: chartTextColors },
+                            grid: { color: gridLinesColor }
+                        }
+                    }
+                }
+            });
+
+            attrChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Attrition Rate (%)',
+                        data: attritionRates,
+                        borderColor: COLORS.danger,
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                        borderWidth: 3,
+                        pointBackgroundColor: COLORS.danger,
+                        pointBorderColor: '#ffffff',
+                        pointHoverRadius: 8,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: activeTheme === 'dark' ? '#1f2937' : '#ffffff',
+                            titleColor: chartTextColors,
+                            bodyColor: chartTextColors,
+                            callbacks: {
+                                label: function(context) { return `Attrition: ${context.parsed.y}%`; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: chartTextColors },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { 
+                                color: chartTextColors,
+                                callback: function(value) { return value + '%'; }
+                            },
+                            grid: { color: gridLinesColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        // DATA GRID RENDER ENGINE
+        function renderTable() {
+            renderTableHeader();
+            renderTableRows();
+            updatePagination();
+        }
+
+        function renderTableHeader() {
+            tableHeaderRow.innerHTML = '';
+            currentColumns.forEach(col => {
+                const th = document.createElement('th');
+                th.innerText = col;
+                tableHeaderRow.appendChild(th);
+            });
+            if (currentColumns.length === 0) {
+                const th = document.createElement('th');
+                th.innerText = 'No columns selected. Check "Choose Columns" box above!';
+                th.style.textAlign = 'center';
+                tableHeaderRow.appendChild(th);
+            }
+        }
+
+        function renderTableRows() {
+            tableBody.innerHTML = '';
+            
+            if (currentColumns.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 1;
+                td.style.textAlign = 'center';
+                td.innerText = 'Columns checklist empty.';
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+                return;
+            }
+
+            if (filteredData.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = currentColumns.length;
+                td.style.textAlign = 'center';
+                td.innerText = 'No matching employees found.';
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+                return;
+            }
+
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, filteredData.length);
+            const pageData = filteredData.slice(startIndex, endIndex);
+
+            pageData.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                currentColumns.forEach(col => {
+                    const td = document.createElement('td');
+                    const value = row[col];
+
+                    // Render Custom badges for Attrition Yes/No
+                    if (col === 'Attrition') {
+                        const span = document.createElement('span');
+                        span.className = `badge badge-${value.toLowerCase()}`;
+                        span.innerText = value;
+                        td.appendChild(span);
+                    } else if (col === 'MonthlyIncome') {
+                        td.innerText = '$' + value.toLocaleString();
+                    } else {
+                        td.innerText = value;
+                    }
+
+                    tr.appendChild(td);
+                });
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function updatePagination() {
+            const maxPage = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+            pageNumLabel.innerText = `${currentPage} / ${maxPage}`;
+
+            const startIndex = (currentPage - 1) * rowsPerPage + 1;
+            const endIndex = Math.min(startIndex + rowsPerPage - 1, filteredData.length);
+
+            if (filteredData.length === 0) {
+                paginationInfo.innerText = 'Showing 0 records';
+            } else {
+                paginationInfo.innerText = `Showing ${startIndex.toLocaleString()} to ${endIndex.toLocaleString()} of ${filteredData.length.toLocaleString()} Employees`;
+            }
+
+            btnFirst.disabled = currentPage === 1;
+            btnPrev.disabled = currentPage === 1;
+            btnNext.disabled = currentPage === maxPage;
+            btnLast.disabled = currentPage === maxPage;
+        }
+
+        // EXPORT EXCEL/CSV IMPLEMENTATION
+        function exportToCSV() {
+            if (filteredData.length === 0) {
+                alert('No data to export!');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Header Row
+            csvContent += currentColumns.join(",") + "\r\n";
+
+            // Body Rows
+            filteredData.forEach(row => {
+                const rowValues = currentColumns.map(col => {
+                    const val = String(row[col]);
+                    // Escape double quotes and commas
+                    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                        return `"${val.replace(/"/g, '""')}"`;
+                    }
+                    return val;
+                });
+                csvContent += rowValues.join(",") + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "IBM_HR_Analytics_Export.csv");
+            document.body.appendChild(link); // Required for FF
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
